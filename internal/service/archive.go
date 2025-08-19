@@ -47,7 +47,7 @@ func (s *ArchiveService) buildArchivePath(author, categoryTitle string, publishe
 	sanitizedAuthor := utils.SanitizeForPath(author)
 	sanitizedCategory := utils.SanitizeForPath(categoryTitle)
 	year := fmt.Sprintf("%04d", publishedAt.Year())
-	month := fmt.Sprintf("%02d", int(publishedAt.Month()))
+	month := fmt.Sprintf("%02d - %s", int(publishedAt.Month()), publishedAt.Month().String())
 	
 	return filepath.Join(
 		s.baseDir,
@@ -62,6 +62,7 @@ func (s *ArchiveService) executeGalleryDL(destDir, url string) error {
 	cmd := exec.Command("gallery-dl",
 		"--dest", destDir,
 		"--no-mtime",
+		"--option", "directory=[]",  // Force flat directory structure (no subdirs)
 		url)
 
 	output, err := cmd.CombinedOutput()
