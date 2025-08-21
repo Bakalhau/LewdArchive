@@ -62,7 +62,7 @@ func (s *ArchiveService) executeGalleryDL(destDir, url string) error {
 	cmd := exec.Command("gallery-dl",
 		"--dest", destDir,
 		"--no-mtime",
-		"--option", "directory=[]",  // Force flat directory structure (no subdirs)
+		"--option", "directory=[]",
 		url)
 
 	output, err := cmd.CombinedOutput()

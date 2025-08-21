@@ -22,14 +22,16 @@ type WebhookHandler struct {
 	postRepo        *repository.PostRepository
 	archiveService  *service.ArchiveService
 	minifluxService *service.MinifluxService
+	discordService  *service.DiscordService
 }
 
-func NewWebhookHandler(cfg config.Config, postRepo *repository.PostRepository, archiveService *service.ArchiveService, minifluxService *service.MinifluxService) *WebhookHandler {
+func NewWebhookHandler(cfg config.Config, postRepo *repository.PostRepository, archiveService *service.ArchiveService, minifluxService *service.MinifluxService, discordService *service.DiscordService) *WebhookHandler {
 	return &WebhookHandler{
 		config:          cfg,
 		postRepo:        postRepo,
 		archiveService:  archiveService,
 		minifluxService: minifluxService,
+		discordService:  discordService,
 	}
 }
 
@@ -126,6 +128,12 @@ func (h *WebhookHandler) processEntry(feed model.Feed, entry model.Entry) error 
 	}
 
 	go h.archiveService.DownloadContent(entry.URL, entry.Author, feed.Category.Title, publishedAt, entry.Hash)
+
+	if h.discordService != nil {
+		if err := h.discordService.SendEmbed(feed, entry); err != nil {
+			log.Printf("Error sending Discord notification for entry %s: %v", entry.Hash, err)
+		}
+	}
 
 	return nil
 }

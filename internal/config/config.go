@@ -3,12 +3,13 @@ package config
 import "os"
 
 type Config struct {
-	Port              string
-	DBPath            string
-	MinifluxSecretKey string
-	MinifluxAPIURL    string
-	MinifluxAPIToken  string
-	ArchiveDir        string
+	Port                string
+	DBPath              string
+	MinifluxSecretKey   string
+	MinifluxAPIURL      string
+	MinifluxAPIToken    string
+	ArchiveDir          string
+	DiscordWebhookURL   string
 }
 
 func Load() Config {
@@ -19,6 +20,7 @@ func Load() Config {
 		MinifluxAPIURL:    getEnv("MINIFLUX_API_URL", ""),
 		MinifluxAPIToken:  getEnv("MINIFLUX_API_TOKEN", ""),
 		ArchiveDir:        getEnv("ARCHIVE_DIR", "./data/archive"),
+		DiscordWebhookURL: getEnv("DISCORD_WEBHOOK_URL", ""),
 	}
 }
 

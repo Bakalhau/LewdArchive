@@ -27,6 +27,10 @@ func main() {
 		log.Println("WARNING: MINIFLUX_SECRET is not set. HMAC verification will be skipped.")
 	}
 
+	if cfg.DiscordWebhookURL == "" {
+		log.Println("WARNING: DISCORD_WEBHOOK_URL is not set. Discord notifications will be skipped.")
+	}
+
 	db, err := database.NewSQLite(cfg.DBPath)
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
@@ -41,8 +45,9 @@ func main() {
 
 	archiveService := service.NewArchiveService(cfg.ArchiveDir)
 	minifluxService := service.NewMinifluxService(cfg.MinifluxAPIURL, cfg.MinifluxAPIToken)
+	discordService := service.NewDiscordService(cfg.DiscordWebhookURL)
 
-	webhookHandler := handler.NewWebhookHandler(cfg, postRepo, archiveService, minifluxService)
+	webhookHandler := handler.NewWebhookHandler(cfg, postRepo, archiveService, minifluxService, discordService)
 
 	http.HandleFunc("/webhook", webhookHandler.HandleWebhook)
 	http.HandleFunc("/health", healthHandler)
