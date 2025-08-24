@@ -31,6 +31,10 @@ func main() {
 		log.Println("WARNING: DISCORD_WEBHOOK_URL is not set. Discord notifications will be skipped.")
 	}
 
+	if cfg.ChibisafeAPIURL == "" || cfg.ChibisafeAPIKey == "" {
+		log.Println("WARNING: CHIBISAFE_API_URL or CHIBISAFE_API_KEY is not set. Chibisafe uploads will be skipped.")
+	}
+
 	db, err := database.NewSQLite(cfg.DBPath)
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
@@ -43,7 +47,8 @@ func main() {
 
 	postRepo := repository.NewPostRepository(db)
 
-	archiveService := service.NewArchiveService(cfg.ArchiveDir)
+	chibisafeService := service.NewChibisafeService(cfg.ChibisafeAPIURL, cfg.ChibisafeAPIKey)
+	archiveService := service.NewArchiveService(cfg.ArchiveDir, chibisafeService)
 	minifluxService := service.NewMinifluxService(cfg.MinifluxAPIURL, cfg.MinifluxAPIToken)
 	discordService := service.NewDiscordService(cfg.DiscordWebhookURL)
 
@@ -55,6 +60,9 @@ func main() {
 	log.Printf("🚀 Server starting on port %s", cfg.Port)
 	log.Printf("💾 Database: %s", cfg.DBPath)
 	log.Printf("📁 Archive directory: %s", cfg.ArchiveDir)
+	if chibisafeService.IsConfigured() {
+		log.Printf("☁️ Chibisafe: %s", cfg.ChibisafeAPIURL)
+	}
 	log.Printf("")
 	log.Printf("📡 Available endpoints:")
 	log.Printf("   Health Check: http://localhost:%s/health", cfg.Port)

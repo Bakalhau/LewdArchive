@@ -10,6 +10,8 @@ type Config struct {
 	MinifluxAPIToken    string
 	ArchiveDir          string
 	DiscordWebhookURL   string
+	ChibisafeAPIURL     string
+	ChibisafeAPIKey     string
 }
 
 func Load() Config {
@@ -21,6 +23,8 @@ func Load() Config {
 		MinifluxAPIToken:  getEnv("MINIFLUX_API_TOKEN", ""),
 		ArchiveDir:        getEnv("ARCHIVE_DIR", "./data/archive"),
 		DiscordWebhookURL: getEnv("DISCORD_WEBHOOK_URL", ""),
+		ChibisafeAPIURL:   getEnv("CHIBISAFE_API_URL", ""),
+		ChibisafeAPIKey:   getEnv("CHIBISAFE_API_KEY", ""),
 	}
 }
 

@@ -127,7 +127,7 @@ func (h *WebhookHandler) processEntry(feed model.Feed, entry model.Entry) error 
 		log.Printf("Error marking entry %d as read: %v", entry.ID, err)
 	}
 
-	go h.archiveService.DownloadContent(entry.URL, entry.Author, feed.Category.Title, publishedAt, entry.Hash)
+	go h.archiveService.DownloadContent(entry.URL, entry.Author, feed.Category.Title, entry.Title, publishedAt, entry.Hash)
 
 	if h.discordService != nil {
 		if err := h.discordService.SendEmbed(feed, entry); err != nil {

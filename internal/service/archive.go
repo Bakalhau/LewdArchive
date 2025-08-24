@@ -12,16 +12,18 @@ import (
 )
 
 type ArchiveService struct {
-	baseDir string
+	baseDir          string
+	chibisafeService *ChibisafeService
 }
 
-func NewArchiveService(baseDir string) *ArchiveService {
+func NewArchiveService(baseDir string, chibisafeService *ChibisafeService) *ArchiveService {
 	return &ArchiveService{
-		baseDir: baseDir,
+		baseDir:          baseDir,
+		chibisafeService: chibisafeService,
 	}
 }
 
-func (s *ArchiveService) DownloadContent(url, author, categoryTitle string, publishedAt time.Time, hash string) {
+func (s *ArchiveService) DownloadContent(url, author, categoryTitle, title string, publishedAt time.Time, hash string) {
 	log.Printf("Starting download for: %s", url)
 
 	if _, err := exec.LookPath("gallery-dl"); err != nil {
@@ -41,6 +43,15 @@ func (s *ArchiveService) DownloadContent(url, author, categoryTitle string, publ
 	}
 
 	log.Printf("Download completed for: %s", url)
+
+	if s.chibisafeService != nil && s.chibisafeService.IsConfigured() {
+		log.Printf("Starting Chibisafe upload for: %s", archiveDir)
+		if err := s.chibisafeService.UploadFiles(archiveDir, categoryTitle, author, title); err != nil {
+			log.Printf("Error uploading to Chibisafe: %v", err)
+		} else {
+			log.Printf("Chibisafe upload completed for: %s", archiveDir)
+		}
+	}
 }
 
 func (s *ArchiveService) buildArchivePath(author, categoryTitle string, publishedAt time.Time, hash string) string {
