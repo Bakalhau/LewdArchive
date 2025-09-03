@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -27,7 +28,15 @@ func (s *MinifluxService) MarkEntryAsRead(entryID int) error {
 		return nil
 	}
 
-	err := s.client.UpdateEntries([]int64{int64(entryID)}, "read")
+	entryIDs := []int64{int64(entryID)}
+	jsonBody, err := json.Marshal(map[string]interface{}{"entry_ids": entryIDs, "status": "read"})
+	if err != nil {
+		log.Printf("Error marshaling body for entry %d: %v", entryID, err)
+	} else {
+		log.Printf("Sending body to Miniflux for entry %d: %s", entryID, string(jsonBody))
+	}
+
+	err = s.client.UpdateEntries(entryIDs, "read")
 	if err != nil {
 		return fmt.Errorf("failed to mark entry %d as read: %w", entryID, err)
 	}

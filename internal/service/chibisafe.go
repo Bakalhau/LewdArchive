@@ -51,7 +51,6 @@ func (s *ChibisafeService) UploadFiles(archiveDir, categoryTitle, author, title 
 		return nil
 	}
 
-	// Get or create album
 	albumUUID, err := s.getOrCreateAlbum(categoryTitle)
 	if err != nil {
 		return fmt.Errorf("failed to get/create album: %w", err)
@@ -303,6 +302,37 @@ func (s *ChibisafeService) isSupportedFile(filename string) bool {
 	return false
 }
 
+func (s *ChibisafeService) getContentType(filePath, filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	
+	specificTypes := map[string]string{
+		".mp4":  "video/mp4",
+		".webm": "video/webm",
+		".avi":  "video/x-msvideo",
+		".mov":  "video/quicktime",
+		".wmv":  "video/x-ms-wmv",
+		".mkv":  "video/x-matroska",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".png":  "image/png",
+		".gif":  "image/gif",
+		".webp": "image/webp",
+		".bmp":  "image/bmp",
+		".tiff": "image/tiff",
+		".svg":  "image/svg+xml",
+	}
+	
+	if contentType, exists := specificTypes[ext]; exists {
+		return contentType
+	}
+	
+	if detectedType := mime.TypeByExtension(ext); detectedType != "" {
+		return detectedType
+	}
+	
+	return "application/octet-stream"
+}
+
 func (s *ChibisafeService) uploadFile(filePath, filename, albumUUID string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -310,18 +340,25 @@ func (s *ChibisafeService) uploadFile(filePath, filename, albumUUID string) (str
 	}
 	defer file.Close()
 
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	ext := filepath.Ext(filename)
-	contentType := mime.TypeByExtension(ext)
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
+	contentType := s.getContentType(filePath, filename)
+	
+	log.Printf("Uploading file %s (size: %d bytes, content-type: %s)", filename, fileInfo.Size(), contentType)
 
 	headers := textproto.MIMEHeader{}
 	headers.Set("Content-Disposition", fmt.Sprintf(`form-data; name="files"; filename="%s"`, filename))
 	headers.Set("Content-Type", contentType)
+	
+	if strings.ToLower(filepath.Ext(filename)) == ".mp4" {
+		headers.Set("Content-Transfer-Encoding", "binary")
+	}
 
 	part, err := writer.CreatePart(headers)
 	if err != nil {
@@ -344,6 +381,9 @@ func (s *ChibisafeService) uploadFile(filePath, filename, albumUUID string) (str
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("x-api-key", s.apiKey)
 	req.Header.Set("albumuuid", albumUUID)
+	
+	log.Printf("Upload request headers: Content-Type=%s, albumuuid=%s", 
+		writer.FormDataContentType(), albumUUID)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -353,6 +393,7 @@ func (s *ChibisafeService) uploadFile(filePath, filename, albumUUID string) (str
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
+		log.Printf("Upload failed for %s: status=%d, body=%s", filename, resp.StatusCode, string(body))
 		return "", fmt.Errorf("upload failed: %d - %s", resp.StatusCode, string(body))
 	}
 
@@ -361,7 +402,8 @@ func (s *ChibisafeService) uploadFile(filePath, filename, albumUUID string) (str
 		return "", err
 	}
 
-	log.Printf("Uploaded file: %s (%s)", response.Name, response.UUID)
+	log.Printf("Successfully uploaded file: %s (%s) -> UUID: %s, Public URL: %s", 
+		response.Name, filename, response.UUID, response.PublicURL)
 	return response.UUID, nil
 }
 
