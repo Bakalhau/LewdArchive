@@ -108,18 +108,53 @@ func getIconURL(feedURL string) string {
 }
 
 func extractImageFromContent(content string) string {
-	re := regexp.MustCompile(`(?:<img src="([^"]+)"|<a href="([^"]+\.(?:jpg|jpeg|png|gif))")`)
-	matches := re.FindAllStringSubmatch(content, -1)
+	imgRegex := regexp.MustCompile(`<img[^>]+src="([^"]+)"`)
+	matches := imgRegex.FindAllStringSubmatch(content, -1)
 	
 	for _, match := range matches {
-		for _, url := range match[1:] {
-			if url != "" {
+		if len(match) > 1 {
+			url := match[1]
+			if isImageURL(url) {
+				log.Printf("Found image from <img> tag: %s", url)
 				return url
 			}
 		}
 	}
 	
+	linkRegex := regexp.MustCompile(`<a[^>]+href="([^"]+\.(?:jpg|jpeg|png|gif|webp|bmp|svg))"`)
+	matches = linkRegex.FindAllStringSubmatch(content, -1)
+	
+	for _, match := range matches {
+		if len(match) > 1 {
+			url := match[1]
+			log.Printf("Found image from <a> tag: %s", url)
+			return url
+		}
+	}
+	
+	generalImageRegex := regexp.MustCompile(`https?://[^\s"<>]+\.(?:jpg|jpeg|png|gif|webp|bmp|svg|tiff)`)
+	matches = generalImageRegex.FindAllStringSubmatch(content, -1)
+	
+	if len(matches) > 0 {
+		url := matches[0][0]
+		log.Printf("Found image from general URL pattern: %s", url)
+		return url
+	}
+	
+	log.Printf("No image found in content: %s", content)
 	return ""
+}
+
+func isImageURL(url string) bool {
+	imageExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".tiff"}
+	urlLower := strings.ToLower(url)
+	
+	for _, ext := range imageExtensions {
+		if strings.Contains(urlLower, ext) {
+			return true
+		}
+	}
+	return false
 }
 
 var categoryColors = map[string]int{
