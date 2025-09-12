@@ -12,14 +12,16 @@ import (
 )
 
 type ArchiveService struct {
-	baseDir          string
-	chibisafeService *ChibisafeService
+	baseDir            string
+	chibisafeService   *ChibisafeService
+	cleanupAfterUpload bool
 }
 
-func NewArchiveService(baseDir string, chibisafeService *ChibisafeService) *ArchiveService {
+func NewArchiveService(baseDir string, chibisafeService *ChibisafeService, cleanupAfterUpload bool) *ArchiveService {
 	return &ArchiveService{
-		baseDir:          baseDir,
-		chibisafeService: chibisafeService,
+		baseDir:            baseDir,
+		chibisafeService:   chibisafeService,
+		cleanupAfterUpload: cleanupAfterUpload,
 	}
 }
 
@@ -50,6 +52,14 @@ func (s *ArchiveService) DownloadContent(url, author, categoryTitle, title strin
 			log.Printf("Error uploading to Chibisafe: %v", err)
 		} else {
 			log.Printf("Chibisafe upload completed for: %s", archiveDir)
+			
+			if s.cleanupAfterUpload {
+				if err := s.cleanupDirectory(archiveDir); err != nil {
+					log.Printf("Error cleaning up directory %s: %v", archiveDir, err)
+				} else {
+					log.Printf("Successfully cleaned up directory: %s", archiveDir)
+				}
+			}
 		}
 	}
 }
@@ -82,4 +92,56 @@ func (s *ArchiveService) executeGalleryDL(destDir, url string) error {
 	}
 
 	return nil
+}
+
+func (s *ArchiveService) cleanupDirectory(dirPath string) error {
+	// Check if directory exists
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		log.Printf("Directory %s does not exist, nothing to clean up", dirPath)
+		return nil
+	}
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return fmt.Errorf("failed to read directory %s: %w", dirPath, err)
+	}
+
+	var filesRemoved int
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			filePath := filepath.Join(dirPath, entry.Name())
+			if err := os.Remove(filePath); err != nil {
+				log.Printf("Warning: failed to remove file %s: %v", filePath, err)
+			} else {
+				filesRemoved++
+			}
+		}
+	}
+
+	if err := os.Remove(dirPath); err != nil {
+		log.Printf("Note: Could not remove directory %s (may contain subdirectories): %v", dirPath, err)
+	}
+
+	s.cleanupEmptyParentDirs(filepath.Dir(dirPath))
+
+	log.Printf("Cleanup completed: removed %d files from %s", filesRemoved, dirPath)
+	return nil
+}
+
+func (s *ArchiveService) cleanupEmptyParentDirs(dirPath string) {
+	if dirPath == s.baseDir || dirPath == filepath.Dir(s.baseDir) {
+		return
+	}
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return
+	}
+
+	if len(entries) == 0 {
+		if err := os.Remove(dirPath); err == nil {
+			log.Printf("Removed empty directory: %s", dirPath)
+			s.cleanupEmptyParentDirs(filepath.Dir(dirPath))
+		}
+	}
 }

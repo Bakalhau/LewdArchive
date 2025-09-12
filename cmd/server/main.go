@@ -48,7 +48,7 @@ func main() {
 	postRepo := repository.NewPostRepository(db)
 
 	chibisafeService := service.NewChibisafeService(cfg.ChibisafeAPIURL, cfg.ChibisafeAPIKey)
-	archiveService := service.NewArchiveService(cfg.ArchiveDir, chibisafeService)
+	archiveService := service.NewArchiveService(cfg.ArchiveDir, chibisafeService, cfg.CleanupAfterUpload)
 	minifluxService := service.NewMinifluxService(cfg.MinifluxAPIURL, cfg.MinifluxAPIToken)
 	discordService := service.NewDiscordService(cfg.DiscordWebhookURL)
 
@@ -60,6 +60,11 @@ func main() {
 	log.Printf("🚀 Server starting on port %s", cfg.Port)
 	log.Printf("💾 Database: %s", cfg.DBPath)
 	log.Printf("📁 Archive directory: %s", cfg.ArchiveDir)
+	if cfg.CleanupAfterUpload {
+		log.Printf("🧹 Cleanup after upload: ENABLED")
+	} else {
+		log.Printf("🧹 Cleanup after upload: DISABLED")
+	}
 	if chibisafeService.IsConfigured() {
 		log.Printf("☁️ Chibisafe: %s", cfg.ChibisafeAPIURL)
 	}
@@ -83,7 +88,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 		"status": "OK",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"service": "lewdarchive",
-		"version": "1.0.0",
+		"version": "1.1.2",
 	}
 	
 	json.NewEncoder(w).Encode(response)
