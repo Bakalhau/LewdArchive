@@ -92,6 +92,10 @@ func (s *ChibisafeService) getSettings() (*ChibisafeSettings, error) {
 	return &settings, nil
 }
 
+func (s *ChibisafeService) containsWIP(title string) bool {
+	return strings.Contains(strings.ToUpper(title), "WIP")
+}
+
 func (s *ChibisafeService) UploadFiles(archiveDir, categoryTitle, author, title string) error {
 	if !s.IsConfigured() {
 		log.Printf("Chibisafe not configured, skipping upload for %s", archiveDir)
@@ -103,12 +107,22 @@ func (s *ChibisafeService) UploadFiles(archiveDir, categoryTitle, author, title 
 		return fmt.Errorf("failed to get/create album: %w", err)
 	}
 
-	tagUUID, err := s.getOrCreateTag(author)
+	authorTagUUID, err := s.getOrCreateTag(author)
 	if err != nil {
-		log.Printf("Warning: failed to get/create tag for %s: %v", author, err)
+		log.Printf("Warning: failed to get/create author tag for %s: %v", author, err)
 	}
 
-	return s.uploadDirectoryFiles(archiveDir, albumUUID, tagUUID, title)
+	var wipTagUUID string
+	if s.containsWIP(title) {
+		wipTagUUID, err = s.getOrCreateTag("WIP")
+		if err != nil {
+			log.Printf("Warning: failed to get/create WIP tag: %v", err)
+		} else {
+			log.Printf("WIP detected in title '%s', will apply WIP tag", title)
+		}
+	}
+
+	return s.uploadDirectoryFiles(archiveDir, albumUUID, authorTagUUID, wipTagUUID, title)
 }
 
 func (s *ChibisafeService) getOrCreateAlbum(categoryTitle string) (string, error) {
@@ -197,21 +211,21 @@ func (s *ChibisafeService) createAlbum(name string) (string, error) {
 	return response.Album.UUID, nil
 }
 
-func (s *ChibisafeService) getOrCreateTag(author string) (string, error) {
-	tags, err := s.searchTags(author)
+func (s *ChibisafeService) getOrCreateTag(name string) (string, error) {
+	tags, err := s.searchTags(name)
 	if err != nil {
 		return "", err
 	}
 
 	for _, tag := range tags {
-		if strings.EqualFold(tag.Name, author) {
+		if strings.EqualFold(tag.Name, name) {
 			log.Printf("Found existing tag: %s (%s)", tag.Name, tag.UUID)
 			return tag.UUID, nil
 		}
 	}
 
-	log.Printf("Creating new tag: %s", author)
-	return s.createTag(author)
+	log.Printf("Creating new tag: %s", name)
+	return s.createTag(name)
 }
 
 func (s *ChibisafeService) searchTags(search string) ([]model.ChibisafeTag, error) {
@@ -283,7 +297,7 @@ func (s *ChibisafeService) createTag(name string) (string, error) {
 	return response.Tag.UUID, nil
 }
 
-func (s *ChibisafeService) uploadDirectoryFiles(dirPath, albumUUID, tagUUID, title string) error {
+func (s *ChibisafeService) uploadDirectoryFiles(dirPath, albumUUID, authorTagUUID, wipTagUUID, title string) error {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return err
@@ -327,9 +341,17 @@ func (s *ChibisafeService) uploadDirectoryFiles(dirPath, albumUUID, tagUUID, tit
 			continue
 		}
 
-		if tagUUID != "" && fileUUID != "" {
-			if err := s.addTagToFile(fileUUID, tagUUID); err != nil {
-				log.Printf("Error adding tag to file %s: %v", filename, err)
+		if authorTagUUID != "" && fileUUID != "" {
+			if err := s.addTagToFile(fileUUID, authorTagUUID); err != nil {
+				log.Printf("Error adding author tag to file %s: %v", filename, err)
+			}
+		}
+
+		if wipTagUUID != "" && fileUUID != "" {
+			if err := s.addTagToFile(fileUUID, wipTagUUID); err != nil {
+				log.Printf("Error adding WIP tag to file %s: %v", filename, err)
+			} else {
+				log.Printf("Successfully applied WIP tag to file %s", filename)
 			}
 		}
 	}
